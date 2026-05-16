@@ -21,6 +21,8 @@ namespace NbfcClient.ViewModels
 
         private IFanControlClient client;
         private int fanIndex;
+        private int sliderDragCount;
+        private DateTime suppressSliderSyncUntilUtc;
 
         #endregion
 
@@ -34,11 +36,11 @@ namespace NbfcClient.ViewModels
             Messenger.Default.Register<ReloadFanControlInfoMessage>(this, Refresh);
 
             Refresh(true);
-        }        
+        }
 
         #endregion
 
-        #region Properties        
+        #region Properties
 
         public float CurrentFanSpeedLevel
         {
@@ -47,6 +49,7 @@ namespace NbfcClient.ViewModels
             {
                 if (Set(ref this.currentFanSpeedLevel, value))
                 {
+                    suppressSliderSyncUntilUtc = DateTime.UtcNow.AddSeconds(2);
                     client.SetTargetFanSpeed(GetFanSpeedPercentage(value), fanIndex);
                 }
             }
@@ -96,6 +99,25 @@ namespace NbfcClient.ViewModels
 
         #endregion
 
+        #region Public Methods
+
+        public void NotifySliderDragStarted()
+        {
+            this.sliderDragCount++;
+        }
+
+        public void NotifySliderDragCompleted()
+        {
+            if (this.sliderDragCount > 0)
+            {
+                this.sliderDragCount--;
+            }
+
+            this.suppressSliderSyncUntilUtc = DateTime.UtcNow.AddSeconds(1);
+        }
+
+        #endregion
+
         #region Private Methods
 
         private void Refresh(ReloadFanControlInfoMessage msg)
@@ -132,6 +154,11 @@ namespace NbfcClient.ViewModels
             Set(ref isAutoFanControlEnabled, status.AutoControlEnabled, nameof(IsAutoFanControlEnabled));
             Set(ref isCriticalModeEnabled, status.CriticalModeEnabled, nameof(IsCriticalModeEnabled));
 
+            if (ShouldSkipSliderSync(status))
+            {
+                return;
+            }
+
             if (status.AutoControlEnabled)
             {
                 // set the current speed level to (highest possible value) + 1 to indicate autmatic control
@@ -142,6 +169,26 @@ namespace NbfcClient.ViewModels
                 int level = (int)Math.Round((status.TargetFanSpeed / 100.0) * status.FanSpeedSteps);
                 Set(ref currentFanSpeedLevel, level, nameof(CurrentFanSpeedLevel));
             }
+        }
+
+        private bool ShouldSkipSliderSync(FanStatus status)
+        {
+            if (status.AutoControlEnabled)
+            {
+                return false;
+            }
+
+            if (this.sliderDragCount > 0)
+            {
+                return true;
+            }
+
+            if (DateTime.UtcNow < this.suppressSliderSyncUntilUtc)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private float GetFanSpeedPercentage(float sliderValue)

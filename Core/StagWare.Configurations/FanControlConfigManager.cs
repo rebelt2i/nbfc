@@ -61,10 +61,12 @@ namespace StagWare.FanControl.Configurations
 
         public bool SelectConfig(string configName)
         {
-            if (Contains(configName))
+            string resolvedKey;
+
+            if (TryResolveConfigKey(configName, out resolvedKey))
             {
-                SelectedConfig = GetConfig(configName);
-                SelectedConfigName = configName;
+                SelectedConfig = GetConfig(resolvedKey);
+                SelectedConfigName = resolvedKey;
             }
             else
             {

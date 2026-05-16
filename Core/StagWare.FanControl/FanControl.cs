@@ -109,6 +109,13 @@ namespace StagWare.FanControl
             this.tempFilter = filter;
             this.config = (FanControlConfigV2)config.Clone();
             this.pollInterval = config.EcPollInterval;
+
+            if (config.UseThinkPadEcProtocol
+                && config.FanWriteRetryInterval > 0
+                && config.FanWriteRetryInterval < this.pollInterval)
+            {
+                this.pollInterval = Math.Max(MinPollInterval, config.FanWriteRetryInterval);
+            }
             this.requestedSpeeds = new float[config.FanConfigurations.Count];
             this.fanInfo = new FanInformation[config.FanConfigurations.Count];
             this.fans = new Fan[config.FanConfigurations.Count];
@@ -332,6 +339,10 @@ namespace StagWare.FanControl
             {
                 Thread.VolatileWrite(ref this.requestedSpeeds[fanIndex], speed);
 
+                // Reflect user target immediately for status/UI (EC apply may lag).
+                this.fans[fanIndex].UpdateTargetSpeed(speed, this.temperature);
+                PublishFanTargetSpeed(fanIndex);
+
                 if (this.Enabled)
                 {
                     ThreadPool.QueueUserWorkItem(TimerCallback, null);
@@ -436,7 +447,21 @@ namespace StagWare.FanControl
                 ApplyRegisterWriteConfigurations(reInitRequired);
             }
 
-            // Set requested fan speeds
+            if (!readOnly && this.config.UseThinkPadEcProtocol)
+            {
+                ApplyThinkPadEcFanSpeeds(temperature);
+            }
+            else
+            {
+                ApplyStandardEcFanSpeeds(temperature, readOnly);
+            }
+
+            // Update fanInfo
+            this.fanInfo = GetFanInformation();
+        }
+
+        private void ApplyStandardEcFanSpeeds(float temperature, bool readOnly)
+        {
             int retryCount = Math.Max(1, this.config.FanWriteRetryCount);
             int retryDelayMs = this.config.FanWriteRetryInterval > 0
                 ? this.config.FanWriteRetryInterval
@@ -463,9 +488,80 @@ namespace StagWare.FanControl
                     }
                 }
             }
+        }
 
-            // Update fanInfo
-            this.fanInfo = GetFanInformation();
+        /// <summary>
+        /// ThinkPad dual-fan protocol: write both fans in one sequence with verify/retry (TPFanCtrl2 SetFan).
+        /// </summary>
+        private void ApplyThinkPadEcFanSpeeds(float temperature)
+        {
+            const int delayBetweenFansMs = 50;
+            const int delayBetweenAttemptsMs = 200;
+
+            int retryCount = Math.Max(1, this.config.FanWriteRetryCount);
+            int retryDelayMs = this.config.FanWriteRetryInterval > 0
+                ? this.config.FanWriteRetryInterval
+                : 100;
+
+            for (int i = 0; i < this.fans.Length; i++)
+            {
+                float speed = Thread.VolatileRead(ref this.requestedSpeeds[i]);
+                this.fans[i].UpdateTargetSpeed(speed, temperature);
+            }
+
+            for (int attempt = 0; attempt < retryCount; attempt++)
+            {
+                for (int i = 0; i < this.fans.Length; i++)
+                {
+                    this.fans[i].ApplyTargetToEc();
+                    Thread.Sleep(delayBetweenFansMs);
+                }
+
+                if (VerifyThinkPadEcFanSpeeds())
+                {
+                    return;
+                }
+
+                if (attempt + 1 < retryCount)
+                {
+                    Thread.Sleep(Math.Max(retryDelayMs, delayBetweenAttemptsMs));
+                }
+            }
+
+            if (!VerifyThinkPadEcFanSpeeds())
+            {
+                int reg = this.fans.Length > 0
+                    ? this.fans[0].FanConfig.WriteRegister
+                    : 0x2F;
+                int sample = this.fans.Length > 0 ? this.fans[0].ReadEcSpeedRaw() : -1;
+
+                logger.Warn(
+                    "ThinkPad EC fan control still in BIOS mode or not applied (register {0} read 0x{1:X2}, expected manual level). "
+                    + "Stop Lenovo thermal services and verify Phase 0 write test.",
+                    reg,
+                    sample);
+            }
+        }
+
+        private bool VerifyThinkPadEcFanSpeeds()
+        {
+            for (int i = 0; i < this.fans.Length; i++)
+            {
+                int expected = this.fans[i].GetTargetEcSpeedValue();
+                int actual = this.fans[i].ReadEcSpeedRaw();
+
+                if (this.fans[i].IsBiosControlledEcValue(actual))
+                {
+                    return false;
+                }
+
+                if ((actual & 0x7F) != (expected & 0x7F))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private FanInformation[] GetFanInformation()
@@ -476,8 +572,10 @@ namespace StagWare.FanControl
             {
                 this.fans[i].GetCurrentSpeed();
 
+                float targetSpeed = GetDisplayedTargetSpeed(i);
+
                 info[i] = new FanInformation(
-                    this.fans[i].TargetSpeed,
+                    targetSpeed,
                     this.fans[i].CurrentSpeed,
                     this.fans[i].AutoControlEnabled,
                     this.fans[i].CriticalModeEnabled,
@@ -485,6 +583,36 @@ namespace StagWare.FanControl
             }
 
             return info;
+        }
+
+        private float GetDisplayedTargetSpeed(int fanIndex)
+        {
+            float requested = Thread.VolatileRead(ref this.requestedSpeeds[fanIndex]);
+
+            if (requested >= 0 && requested <= 100)
+            {
+                return requested;
+            }
+
+            return this.fans[fanIndex].TargetSpeed;
+        }
+
+        private void PublishFanTargetSpeed(int fanIndex)
+        {
+            if (this.fanInfo == null || fanIndex < 0 || fanIndex >= this.fanInfo.Length)
+            {
+                return;
+            }
+
+            float targetSpeed = GetDisplayedTargetSpeed(fanIndex);
+            var current = this.fanInfo[fanIndex];
+
+            this.fanInfo[fanIndex] = new FanInformation(
+                targetSpeed,
+                current.CurrentFanSpeed,
+                current.AutoFanControlEnabled,
+                current.CriticalModeEnabled,
+                current.FanDisplayName);
         }
 
         private void StopFanControlCore()

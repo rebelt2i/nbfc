@@ -7,8 +7,8 @@
   <CriticalTemperature>97</CriticalTemperature>
   <EcPluginId>StagWare.Plugins.ECThinkPad</EcPluginId>
   <UseThinkPadEcProtocol>true</UseThinkPadEcProtocol>
-  <FanWriteRetryCount>5</FanWriteRetryCount>
-  <FanWriteRetryInterval>100</FanWriteRetryInterval>
+  <FanWriteRetryCount>3</FanWriteRetryCount>
+  <FanWriteRetryInterval>300</FanWriteRetryInterval>
   <StopConflictingServices>true</StopConflictingServices>
   <FanConfigurations>
     <FanConfiguration>

@@ -26,5 +26,10 @@ namespace NbfcProbe.CommandLineOptions
 
         [Verb("monitor", "Monitor all EC registers for changes")]
         public ECMonitorVerb ECMonitor { get; set; }
+
+        [Verb(
+            "thinkpad-fan-test",
+            "ThinkPad dual-fan write/read test in one EC lock (mux + 0x2F)")]
+        public ECThinkPadFanTestVerb ECThinkPadFanTest { get; set; }
     }
 }

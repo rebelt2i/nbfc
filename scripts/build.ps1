@@ -12,6 +12,29 @@ param(
 $ErrorActionPreference = "Stop"
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
 
+function Find-WixTargets {
+    $candidates = @(
+        "${env:ProgramFiles(x86)}\WiX Toolset v3.14\build\Wix.targets",
+        "${env:ProgramFiles(x86)}\WiX Toolset v3.11\build\Wix.targets",
+        # winget: binaries under "WiX Toolset v3.14", MSBuild targets under MSBuild\Microsoft\WiX
+        "${env:ProgramFiles(x86)}\MSBuild\Microsoft\WiX\v3.x\Wix.targets"
+    )
+    foreach ($c in $candidates) {
+        if (Test-Path $c) { return $c }
+    }
+    foreach ($root in @("${env:ProgramFiles(x86)}", "${env:ProgramFiles}")) {
+        if (-not (Test-Path $root)) { continue }
+        $hit = Get-ChildItem -Path $root -Filter "Wix.targets" -Recurse -ErrorAction SilentlyContinue |
+            Where-Object {
+                $_.FullName -match '\\WiX Toolset v3\.[0-9]+\\build\\Wix\.targets$' -or
+                $_.FullName -match '\\MSBuild\\Microsoft\\WiX\\v3\.x\\Wix\.targets$'
+            } |
+            Select-Object -First 1
+        if ($hit) { return $hit.FullName }
+    }
+    return $null
+}
+
 $MSBuild = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools\MSBuild\Current\Bin\MSBuild.exe"
 if (-not (Test-Path $MSBuild)) {
     $MSBuild = "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe"
@@ -34,14 +57,28 @@ if ($Restore -or -not (Test-Path "$RepoRoot\packages\NLog.4.5.10")) {
 
 Write-Host "Building NBFC ($Configuration)..." -ForegroundColor Cyan
 
-# Build via solution (handles per-project config mapping ReleaseWindows -> Release etc.)
-# WiX installer projects may fail if WiX Toolset 3.14 is not installed; core apps still build.
+$wixProps = @()
+$wixTargets = $null
+if ($Installer) {
+    $wixTargets = Find-WixTargets
+    if ($wixTargets) {
+        $wixBuild = Split-Path -Parent $wixTargets
+        $wixProps = @(
+            "/p:WixTargetsPath=$wixTargets",
+            "/p:WixCATargetsPath=$(Join-Path $wixBuild 'Wix.CA.targets')"
+        )
+        Write-Host "WiX targets: $wixTargets" -ForegroundColor Cyan
+    }
+}
+
+# Solution build maps ReleaseWindows -> Release|x86 for .wixproj projects.
 & $MSBuild "$RepoRoot\NoteBookFanControl.sln" `
     /p:Configuration=$Configuration `
     /t:Build `
     /m `
     /v:minimal `
-    /nologo
+    /nologo `
+    @wixProps
 
 $expectedOutputs = @(
     "$RepoRoot\Core\NbfcCli\bin\$Configuration\nbfc.exe",
@@ -64,30 +101,12 @@ if ($Tests) {
 }
 
 if ($Installer) {
-    function Find-WixTargets {
-        $candidates = @(
-            "${env:ProgramFiles(x86)}\WiX Toolset v3.14\build\Wix.targets",
-            "${env:ProgramFiles(x86)}\WiX Toolset v3.11\build\Wix.targets"
-        )
-        foreach ($c in $candidates) {
-            if (Test-Path $c) { return $c }
-        }
-        $searchRoots = @(
-            "${env:ProgramFiles(x86)}",
-            "${env:ProgramFiles}"
-        )
-        foreach ($root in $searchRoots) {
-            if (-not (Test-Path $root)) { continue }
-            $hit = Get-ChildItem -Path $root -Filter "Wix.targets" -Recurse -ErrorAction SilentlyContinue |
-                Where-Object { $_.FullName -match '\\WiX Toolset v3\.[0-9]+\\build\\Wix\.targets$' } |
-                Select-Object -First 1
-            if ($hit) { return $hit.FullName }
-        }
-        return $null
+    $msi = Get-ChildItem "$RepoRoot\Windows\Setup\NbfcSetup\bin" -Filter "*.msi" -Recurse -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($msi) {
+        Write-Host "  MSI: $($msi.FullName)" -ForegroundColor Green
     }
-
-    $wixTargets = Find-WixTargets
-    if (-not $wixTargets) {
+    elseif (-not $wixTargets) {
         Write-Warning @"
 WiX Toolset 3.14 not found on disk. MSI installer skipped.
 
@@ -99,24 +118,7 @@ Then: .\scripts\build.ps1 -Installer
 "@
     }
     else {
-        $wixBuild = Split-Path -Parent $wixTargets
-        $wixCaTargets = Join-Path $wixBuild "Wix.CA.targets"
-        $wixProps = @(
-            "/p:WixTargetsPath=$wixTargets",
-            "/p:WixCATargetsPath=$wixCaTargets"
-        )
-        Write-Host "Building installer (WiX: $wixTargets)..." -ForegroundColor Cyan
-        & $MSBuild "$RepoRoot\Windows\Setup\DriverSetupWixAction\DriverSetupWixAction.csproj" `
-            /p:Configuration=$Configuration /t:Build /v:minimal /nologo @wixProps
-        if ($LASTEXITCODE -ne 0) { throw "DriverSetupWixAction build failed." }
-        & $MSBuild "$RepoRoot\Windows\Setup\NbfcSetup\NbfcSetup.wixproj" `
-            /p:Configuration=$Configuration /t:Build /v:minimal /nologo @wixProps
-        if ($LASTEXITCODE -ne 0) { throw "NbfcSetup build failed." }
-        $msi = Get-ChildItem "$RepoRoot\Windows\Setup\NbfcSetup\bin" -Filter "*.msi" -Recurse -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($msi) {
-            Write-Host "  MSI: $($msi.FullName)" -ForegroundColor Green
-        }
+        Write-Warning "NbfcSetup.msi was not produced (NbfcBootstrapper may have failed; MSI is optional)."
     }
 }
 

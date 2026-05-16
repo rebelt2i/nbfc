@@ -128,6 +128,17 @@ namespace NbfcProbe
                     opt.ECMonitor.Clearly,
                     opt.ECMonitor.Decimal);
             }
+            else if (opt.ECThinkPadFanTest != null)
+            {
+                var t = opt.ECThinkPadFanTest;
+                byte mux1 = t.MuxFan1 != 0 ? t.MuxFan1 : (byte)0x40;
+                byte mux2 = t.MuxFan2 != 0 ? t.MuxFan2 : (byte)0x41;
+                byte fanCtrl = t.FanControlRegister != 0 ? t.FanControlRegister : (byte)0x2F;
+                byte fanSwitch = t.FanSwitchRegister != 0 ? t.FanSwitchRegister : (byte)0x31;
+
+                int exitCode = ECThinkPadFanTest(fanSwitch, fanCtrl, mux1, mux2, t.Level);
+                Environment.Exit(exitCode);
+            }
             else
             {
                 Console.WriteLine(helpGen.GetHelp(parser.Config));
@@ -160,6 +171,108 @@ namespace NbfcProbe
                 byte b = ec.ReadByte(register);
                 Console.WriteLine("{0} (0x{0:X2})", b);
             });
+        }
+
+        /// <summary>
+        /// Exit codes: 0 = pass, 1 = BIOS locked after write (0x80), 2 = partial (level mismatch),
+        /// 3 = EC lock failed. A BIOS-controlled "before" value alone does not fail the test.
+        /// </summary>
+        private static int ECThinkPadFanTest(
+            byte fanSwitchRegister,
+            byte fanControlRegister,
+            byte muxFan1,
+            byte muxFan2,
+            byte level)
+        {
+            int exitCode = 3;
+            bool lockAcquired = false;
+
+            using (ec = LoadEC())
+            {
+                if (ec == null)
+                {
+                    Console.Error.WriteLine("Could not load EC plugin (use --plugin StagWare.Plugins.ECThinkPad)");
+                    return exitCode;
+                }
+
+                if (!ec.AcquireLock(2000))
+                {
+                    Console.Error.WriteLine(
+                        "Could not acquire EC lock (stop NBFC service: nbfc stop)");
+                    return exitCode;
+                }
+
+                lockAcquired = true;
+
+                try
+                {
+                    const int delayMs = 100;
+
+                    byte before = ec.ReadByte(fanControlRegister);
+
+                    ec.WriteByte(fanSwitchRegister, muxFan1);
+                    Thread.Sleep(delayMs);
+                    ec.WriteByte(fanControlRegister, level);
+                    Thread.Sleep(delayMs);
+
+                    ec.WriteByte(fanSwitchRegister, muxFan2);
+                    Thread.Sleep(delayMs);
+                    ec.WriteByte(fanControlRegister, level);
+                    Thread.Sleep(delayMs);
+
+                    ec.WriteByte(fanSwitchRegister, muxFan1);
+                    Thread.Sleep(delayMs);
+                    byte afterFan1 = ec.ReadByte(fanControlRegister);
+
+                    ec.WriteByte(fanSwitchRegister, muxFan2);
+                    Thread.Sleep(delayMs);
+                    byte afterFan2 = ec.ReadByte(fanControlRegister);
+
+                    bool beforeBios = (before & 0x80) != 0;
+                    bool afterBiosLocked = ((afterFan1 & 0x80) != 0) || ((afterFan2 & 0x80) != 0);
+                    bool levelOk = ((afterFan1 & 0x7F) == (level & 0x7F))
+                        && ((afterFan2 & 0x7F) == (level & 0x7F));
+
+                    Console.WriteLine(
+                        "before={0} (0x{0:X2})",
+                        before);
+                    Console.WriteLine(
+                        "after_fan1={0} (0x{0:X2}) mux=0x{1:X2}",
+                        afterFan1,
+                        muxFan1);
+                    Console.WriteLine(
+                        "after_fan2={0} (0x{0:X2}) mux=0x{1:X2}",
+                        afterFan2,
+                        muxFan2);
+                    Console.WriteLine("level_written={0}", level);
+                    Console.WriteLine("before_bios={0}", beforeBios ? "yes" : "no");
+                    Console.WriteLine("after_bios_locked={0}", afterBiosLocked ? "yes" : "no");
+
+                    if (afterBiosLocked)
+                    {
+                        exitCode = 1;
+                    }
+                    else if (levelOk)
+                    {
+                        exitCode = 0;
+                    }
+                    else
+                    {
+                        exitCode = 2;
+                    }
+
+                    Console.WriteLine("result={0}", exitCode == 0 ? "PASS" : (exitCode == 1 ? "FAIL" : "PARTIAL"));
+                }
+                finally
+                {
+                    if (lockAcquired)
+                    {
+                        ec.ReleaseLock();
+                    }
+                }
+            }
+
+            return exitCode;
         }
 
         private static void ECDump()

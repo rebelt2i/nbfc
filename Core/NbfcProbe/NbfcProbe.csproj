@@ -70,6 +70,7 @@
     <Compile Include="CommandLineOptions\ECWriteVerb.cs" />
     <Compile Include="CommandLineOptions\ECReadVerb.cs" />
     <Compile Include="CommandLineOptions\ECDumpVerb.cs" />
+    <Compile Include="CommandLineOptions\ECThinkPadFanTestVerb.cs" />
     <Compile Include="CommandLineOptions\Verbs.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

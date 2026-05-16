@@ -27,7 +27,7 @@
                 IsSnapToTickEnabled="True"
                 IsMoveToPointEnabled="True"
                 SmallChange="1"
-                Value="{Binding CurrentFanSpeedLevel, Delay=500}" 
+                Value="{Binding CurrentFanSpeedLevel, Delay=150}" 
                 Maximum="{Binding FanSpeedSteps, Converter={StaticResource AddOne}}"/>
             
             <Label 

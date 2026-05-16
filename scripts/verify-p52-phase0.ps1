@@ -199,7 +199,38 @@ if ($AllowWriteTests) {
 }
 else {
     Write-Host ""
-    Write-Host "Skipping write tests (use -AllowWriteTests to probe fan switch values 1, 2, 0x40, 0x41)." -ForegroundColor DarkGray
+    Write-Host "Skipping mux/write tests (use -AllowWriteTests)." -ForegroundColor DarkGray
+}
+
+# --- Critical: write fan level on 0x2F (leave BIOS mode 0x80) ---
+if ($AllowWriteTests) {
+    Write-Host ""
+    Write-Host "Fan control write test (0x2F manual level, not 0x80)..." -ForegroundColor Cyan
+    $testLevel = 3
+    $mux1 = 0x40
+    $mux2 = 0x41
+
+    Write-EcByte 0x31 $mux1 -Verbose
+    Start-Sleep -Milliseconds 100
+    Write-EcByte 0x2F $testLevel -Verbose
+    Start-Sleep -Milliseconds 100
+    Write-EcByte 0x31 $mux2 -Verbose
+    Start-Sleep -Milliseconds 100
+    Write-EcByte 0x2F $testLevel -Verbose
+    Start-Sleep -Milliseconds 100
+    Write-EcByte 0x31 $mux1 -Verbose
+    Start-Sleep -Milliseconds 100
+    $afterWrite = Read-EcByte 0x2F
+
+    $writeResult = [PSCustomObject]@{
+        TestLevel = $testLevel
+        AfterWrite_2F = $afterWrite
+        AfterWriteHex = if ($null -eq $afterWrite) { "" } else { "0x{0:X2}" -f $afterWrite }
+        BiosMode = if ($null -ne $afterWrite -and ($afterWrite -band 0x80)) { "yes" } else { "no" }
+        Pass = if ($null -ne $afterWrite -and -not ($afterWrite -band 0x80) -and (($afterWrite -band 0x7F) -eq $testLevel)) { "yes" } else { "no" }
+    }
+    $writeResult | Export-Csv (Join-Path $ReportDir "fan-control-write-test.csv") -NoTypeInformation
+    Write-Host ("  wrote level {0} -> 0x2F={1}  PASS={2}" -f $testLevel, $writeResult.AfterWriteHex, $writeResult.Pass) -ForegroundColor $(if ($writeResult.Pass -eq "yes") { "Green" } else { "Red" })
 }
 
 # --- Monitor changing registers ---

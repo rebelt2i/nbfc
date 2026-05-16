@@ -40,7 +40,7 @@ namespace NbfcClient.Services
         #region Constructors
 
         [PreferredConstructor]
-        public FanControlClient() : this(3000)
+        public FanControlClient() : this(1000)
         {
         }
 

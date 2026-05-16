@@ -140,6 +140,18 @@ namespace StagWare.FanControl.Configurations.Tests
             }
 
             [Fact]
+            public static void IsCaseInsensitiveOnWindows()
+            {
+                var cfgMan = new ConfigManager<FanControlConfigV2>(
+                    Environment.CurrentDirectory, ".xml", new MockFileSystem());
+
+                cfgMan.AddConfig(new FanControlConfigV2(), "Lenovo ThinkPad P52");
+
+                Assert.True(cfgMan.Contains("lenovo thinkpad p52"));
+                Assert.NotNull(cfgMan.GetConfig("LENOVO thinkpad P52"));
+            }
+
+            [Fact]
             public static void ReturnsFalseIfNotExisting()
             {
                 var cfgMan = new ConfigManager<FanControlConfigV2>(

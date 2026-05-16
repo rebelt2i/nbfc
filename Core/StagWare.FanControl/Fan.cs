@@ -114,6 +114,19 @@ namespace StagWare.FanControl
 
         public virtual void SetTargetSpeed(float speed, float temperature, bool readOnly)
         {
+            UpdateTargetSpeed(speed, temperature);
+
+            if (!readOnly)
+            {
+                ApplyTargetToEc();
+            }
+        }
+
+        /// <summary>
+        /// Updates target speed state without writing to the EC (used for ThinkPad dual-fan batch writes).
+        /// </summary>
+        internal void UpdateTargetSpeed(float speed, float temperature)
+        {
             HandleCriticalMode(temperature);
             this.AutoControlEnabled = (speed < 0) || (speed > 100);
 
@@ -130,13 +143,33 @@ namespace StagWare.FanControl
             {
                 this.targetFanSpeed = speed;
             }
+        }
 
-            speed = CriticalModeEnabled ? 100.0f : this.targetFanSpeed;
+        internal void ApplyTargetToEc()
+        {
+            float speed = CriticalModeEnabled ? 100.0f : this.targetFanSpeed;
+            ECWriteValue(PercentageToFanSpeed(speed));
+        }
 
-            if (!readOnly)
-            {
-                ECWriteValue(PercentageToFanSpeed(speed));
-            }
+        internal int GetTargetEcSpeedValue()
+        {
+            float speed = CriticalModeEnabled ? 100.0f : this.targetFanSpeed;
+            return PercentageToFanSpeed(speed);
+        }
+
+        internal int ReadEcSpeedRaw()
+        {
+            return ECReadValue();
+        }
+
+        internal bool IsBiosControlledEcValue(int ecValue)
+        {
+            return (ecValue & 0x80) != 0;
+        }
+
+        internal FanConfiguration FanConfig
+        {
+            get { return this.fanConfig; }
         }
 
         public virtual float GetCurrentSpeed()

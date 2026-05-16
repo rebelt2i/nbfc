@@ -114,9 +114,11 @@ namespace StagWare.Configurations
 
         public virtual T GetConfig(string configName)
         {
-            if (Contains(configName))
+            string key;
+
+            if (TryResolveConfigKey(configName, out key))
             {
-                return (T)configs[configName]?.Value?.Clone();
+                return (T)configs[key]?.Value?.Clone();
             }
             else
             {
@@ -131,12 +133,35 @@ namespace StagWare.Configurations
 
         public virtual bool Contains(string configName)
         {
+            string key;
+            return TryResolveConfigKey(configName, out key);
+        }
+
+        protected bool TryResolveConfigKey(string configName, out string resolvedKey)
+        {
+            resolvedKey = null;
+
             if (string.IsNullOrWhiteSpace(configName))
             {
                 return false;
             }
 
-            return configs.ContainsKey(configName);
+            if (configs.ContainsKey(configName))
+            {
+                resolvedKey = configName;
+                return true;
+            }
+
+            foreach (string key in configs.Keys)
+            {
+                if (string.Equals(key, configName, StringComparison.OrdinalIgnoreCase))
+                {
+                    resolvedKey = key;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public virtual void AddConfig(T config, string configName)

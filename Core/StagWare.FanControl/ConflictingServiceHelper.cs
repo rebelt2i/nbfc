@@ -13,7 +13,9 @@ namespace StagWare.FanControl
             "LenovoFanTableService",
             "IBMPMSVC",
             "Lenovo Intelligent Cooling",
-            "LenovoICM"
+            "LenovoICM",
+            "LenovoVantageService",
+            "Lenovo Instant On"
         };
 
         public static void WarnIfConflictingServicesRunning()
