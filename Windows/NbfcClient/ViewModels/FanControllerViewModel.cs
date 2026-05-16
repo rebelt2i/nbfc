@@ -111,14 +111,14 @@ namespace NbfcClient.ViewModels
             private set { this.Set(ref this.fanRpm, value); }
         }
 
-        public bool HasFanTemperature
+        public string FanTemperatureText
         {
-            get { return this.fanTemperature >= 0; }
+            get { return this.fanTemperature > 0 ? (this.fanTemperature + " C") : "n/a"; }
         }
 
-        public bool HasFanRpm
+        public string FanRpmText
         {
-            get { return this.fanRpm > 0; }
+            get { return this.fanRpm > 0 ? this.fanRpm.ToString() : "n/a"; }
         }
 
         #endregion
@@ -179,8 +179,8 @@ namespace NbfcClient.ViewModels
             Set(ref isCriticalModeEnabled, status.CriticalModeEnabled, nameof(IsCriticalModeEnabled));
             Set(ref fanTemperature, status.Temperature, nameof(FanTemperature));
             Set(ref fanRpm, status.Rpm, nameof(FanRpm));
-            RaisePropertyChanged(nameof(HasFanTemperature));
-            RaisePropertyChanged(nameof(HasFanRpm));
+            RaisePropertyChanged(nameof(FanTemperatureText));
+            RaisePropertyChanged(nameof(FanRpmText));
 
             if (ShouldSkipSliderSync(status))
             {

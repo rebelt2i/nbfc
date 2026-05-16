@@ -201,12 +201,7 @@ namespace StagWare.FanControl
 
         internal int ReadEcTemperature()
         {
-            if (this.fanConfig.TemperatureRegister <= 0)
-            {
-                return -1;
-            }
-
-            return this.ec.ReadByte((byte)this.fanConfig.TemperatureRegister);
+            return ThinkPadEcTemperature.Read(this.ec, this.fanConfig);
         }
 
         internal int ReadRpm()

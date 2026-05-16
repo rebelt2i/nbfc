@@ -202,8 +202,10 @@ namespace NbfcClient.ViewModels
             }
 
             var parts = info.FanStatus
-                .Where(s => s != null && s.Temperature >= 0)
-                .Select(s => string.Format("{0} {1} C", s.FanDisplayName, s.Temperature))
+                .Where(s => s != null)
+                .Select(s => s.Temperature > 0
+                    ? string.Format("{0} {1} C", s.FanDisplayName, s.Temperature)
+                    : string.Format("{0} n/a", s.FanDisplayName))
                 .ToArray();
 
             if (parts.Length > 0)

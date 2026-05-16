@@ -231,6 +231,11 @@ function Sync-ForkBinaries([string]$InstallRoot) {
             Copy-FileIfExists $deploy.ProbeExe (Join-Path $InstallRoot "ec-probe.exe") | Out-Null
         }
 
+        $clientExe = Join-Path $RepoRoot "Windows\NbfcClient\bin\Release\NoteBookFanControl.exe"
+        if (Test-Path $clientExe) {
+            Copy-FileIfExists $clientExe (Join-Path $InstallRoot "NoteBookFanControl.exe") | Out-Null
+        }
+
         $repoPlugins = Join-Path $deploy.ServiceRoot "Plugins"
         $destPlugins = Join-Path $InstallRoot "Plugins"
         if (Test-Path $repoPlugins) {
@@ -374,6 +379,14 @@ if (-not $SkipCopy) {
     Write-Host "Copied to: $destConfig"
     Select-String -Path $destConfig -Pattern "<FanDisplayName>" | ForEach-Object {
         Write-Host ("  " + $_.Line.Trim())
+    }
+    $tempRegs = Select-String -Path $destConfig -Pattern "<TemperatureRegister>" -AllMatches
+    if ($tempRegs) {
+        Write-Host "  TemperatureRegister entries:"
+        $tempRegs | ForEach-Object { Write-Host ("    " + $_.Line.Trim()) }
+    }
+    else {
+        Write-Warning "  P52 config has no TemperatureRegister - rebuild and re-copy config."
     }
 }
 

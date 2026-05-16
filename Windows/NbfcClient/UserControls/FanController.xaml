@@ -15,7 +15,7 @@
 
     <GroupBox 
         
-        Header="{Binding FanDisplayName}"
+        Header="{Binding FanDisplayName, Mode=OneWay}"
         FontWeight="SemiBold">       
         
         <Grid>
@@ -28,7 +28,7 @@
                 IsMoveToPointEnabled="True"
                 SmallChange="1"
                 Value="{Binding CurrentFanSpeedLevel, Delay=150}" 
-                Maximum="{Binding FanSpeedSteps, Converter={StaticResource AddOne}}"/>
+                Maximum="{Binding FanSpeedSteps, Mode=OneWay, Converter={StaticResource AddOne}}"/>
             
             <Label 
                 HorizontalAlignment="Right" 
@@ -39,7 +39,7 @@
                 
                 <MultiBinding Converter="{StaticResource SliderValueToString}">
                     <Binding Path="Value" ElementName="FanSpeedSlider"/>
-                    <Binding Path="FanSpeedSteps"/>
+                    <Binding Path="FanSpeedSteps" Mode="OneWay"/>
                 </MultiBinding>
             </Label>
             
@@ -50,20 +50,20 @@
                 VerticalAlignment="Top">
                 
                 <MultiBinding Converter="{StaticResource FanSpeedToString}">
-                    <Binding Path="TargetFanSpeed"/>
-                    <Binding Path="IsAutoFanControlEnabled"/>
-                    <Binding Path="IsCriticalModeEnabled"/>
+                    <Binding Path="TargetFanSpeed" Mode="OneWay"/>
+                    <Binding Path="IsAutoFanControlEnabled" Mode="OneWay"/>
+                    <Binding Path="IsCriticalModeEnabled" Mode="OneWay"/>
                 </MultiBinding>
             </Label>
             
             <ProgressBar 
-                Value="{Binding CurrentFanSpeed}" 
+                Value="{Binding CurrentFanSpeed, Mode=OneWay}" 
                 Height="6"
                 Margin="10,79,65,0" 
                 VerticalAlignment="Top" />
             
             <Label 
-                Content="{Binding CurrentFanSpeed}"
+                Content="{Binding CurrentFanSpeed, Mode=OneWay}"
                 ContentStringFormat="Current fan speed:  {0:0.0}%"
                 FontWeight="Normal"
                 Margin="6,85,0,0"
@@ -72,12 +72,11 @@
             <Label
                 FontWeight="Normal"
                 Margin="6,102,0,0"
-                VerticalAlignment="Top"
-                Visibility="{Binding HasFanTemperature, Converter={StaticResource BoolToVisibility}}">
+                VerticalAlignment="Top">
                 <Label.Content>
-                    <MultiBinding StringFormat="Temperature: {0} C  |  RPM: {1}">
-                        <Binding Path="FanTemperature"/>
-                        <Binding Path="FanRpm"/>
+                    <MultiBinding StringFormat="Temperature: {0}  |  RPM: {1}">
+                        <Binding Path="FanTemperatureText" Mode="OneWay"/>
+                        <Binding Path="FanRpmText" Mode="OneWay"/>
                     </MultiBinding>
                 </Label.Content>
             </Label>
