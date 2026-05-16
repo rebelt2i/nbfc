@@ -73,8 +73,8 @@ namespace StagWare.FanControl
         public FanControl(FanControlConfigV2 config, ITemperatureFilter filter, string pluginsDirectory) : this(
             config,
             filter,
-            LoadPlugin<IEmbeddedController>(pluginsDirectory),
-            LoadPlugin<ITemperatureMonitor>(pluginsDirectory))
+            LoadPlugin<IEmbeddedController>(pluginsDirectory, config.EcPluginId),
+            LoadPlugin<ITemperatureMonitor>(pluginsDirectory, null))
         {
         }
 
@@ -152,7 +152,8 @@ namespace StagWare.FanControl
             this.fans = fans;
         }
 
-        private static T LoadPlugin<T>(string pluginsDirectory) where T : IFanControlPlugin
+        private static T LoadPlugin<T>(string pluginsDirectory, string preferredPluginId)
+            where T : IFanControlPlugin
         {
             if (pluginsDirectory == null)
             {
@@ -164,12 +165,15 @@ namespace StagWare.FanControl
                 throw new DirectoryNotFoundException(pluginsDirectory + " could not be found.");
             }
 
-            var pluginLoader = new FanControlPluginLoader<T>(pluginsDirectory);
+            var pluginLoader = new FanControlPluginLoader<T>(pluginsDirectory, preferredPluginId);
 
             if (pluginLoader.FanControlPlugin == null)
             {
                 throw new PlatformNotSupportedException(
-                    "Could not load a  plugin which implements " + typeof(T));
+                    "Could not load a plugin which implements " + typeof(T)
+                    + (string.IsNullOrWhiteSpace(preferredPluginId)
+                        ? string.Empty
+                        : " (requested: " + preferredPluginId + ")"));
             }
 
             return pluginLoader.FanControlPlugin;
@@ -301,6 +305,15 @@ namespace StagWare.FanControl
 
                 if (!readOnly)
                 {
+                    if (this.config.StopConflictingServices)
+                    {
+                        ConflictingServiceHelper.TryStopConflictingServices();
+                    }
+                    else
+                    {
+                        ConflictingServiceHelper.WarnIfConflictingServicesRunning();
+                    }
+
                     InitializeRegisterWriteConfigurations();
                 }
 
@@ -424,10 +437,31 @@ namespace StagWare.FanControl
             }
 
             // Set requested fan speeds
+            int retryCount = Math.Max(1, this.config.FanWriteRetryCount);
+            int retryDelayMs = this.config.FanWriteRetryInterval > 0
+                ? this.config.FanWriteRetryInterval
+                : 100;
+
             for (int i = 0; i < this.fans.Length; i++)
             {
                 float speed = Thread.VolatileRead(ref this.requestedSpeeds[i]);
                 this.fans[i].SetTargetSpeed(speed, temperature, readOnly);
+
+                if (!readOnly && retryCount > 1)
+                {
+                    for (int attempt = 1; attempt < retryCount; attempt++)
+                    {
+                        Thread.Sleep(retryDelayMs);
+                        this.fans[i].GetCurrentSpeed();
+
+                        if (Math.Abs(this.fans[i].CurrentSpeed - this.fans[i].TargetSpeed) <= 15)
+                        {
+                            break;
+                        }
+
+                        this.fans[i].SetTargetSpeed(speed, temperature, readOnly);
+                    }
+                }
             }
 
             // Update fanInfo

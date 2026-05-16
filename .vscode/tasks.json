@@ -91,6 +91,25 @@
       "problemMatcher": "$msCompile"
     },
     {
+      "label": "verify-p52-phase0",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "${workspaceFolder}/scripts/verify-p52-phase0.ps1",
+        "-StopLenovoServices"
+      ],
+      "dependsOn": "build",
+      "dependsOrder": "sequence",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
       "label": "build-installer",
       "type": "shell",
       "command": "powershell",

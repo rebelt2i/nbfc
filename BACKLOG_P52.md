@@ -49,12 +49,24 @@ sc config "Lenovo Intelligent Cooling" start=disabled
 Prüfen, ob nach Neustart kein Lenovo-Dienst mehr auf EC-Ports zugreift.
 Ggf. im Task-Manager / Sysinternals Process Monitor nach Zugriffen auf `\Device\WinRing0` filtern.
 
-### Schritt 0.2 — EC-Register mit nbfc-probe kartieren
+### Schritt 0.2 — EC-Register mit ec-probe kartieren
 
-NBFC enthält `NbfcProbe` (`Core/NbfcProbe/`). Damit die vollständige EC-Register-Map lesen:
+Repo bauen, dann auf dem **P52 in erhöhter PowerShell**:
 
+```powershell
+.\scripts\build.ps1
+.\scripts\verify-p52-phase0.ps1 -StopLenovoServices
+.\scripts\verify-p52-phase0.ps1 -StopLenovoServices -AllowWriteTests
 ```
-NbfcProbe.exe ec-monitor
+
+Das Skript nutzt `ec-probe.exe` mit `--plugin StagWare.Plugins.ECThinkPad`, schreibt nach
+`reports/p52-phase0-<timestamp>/` (Dump, Snapshot, optional Mux-Test und Monitor-CSV).
+
+Manuell (einzelne Register):
+
+```powershell
+.\Core\NbfcProbe\bin\Release\ec-probe.exe --plugin StagWare.Plugins.ECThinkPad read 0x2F
+.\Core\NbfcProbe\bin\Release\ec-probe.exe --plugin StagWare.Plugins.ECThinkPad monitor -t 120 -i 2 -r ec-monitor.csv -c
 ```
 
 Folgende Register dokumentieren (Vergleich mit TPFanCtrl2-Defaults):
@@ -66,12 +78,20 @@ Folgende Register dokumentieren (Vergleich mit TPFanCtrl2-Defaults):
 | Fan Speed | `TP_ECOFFSET_FANSPEED` | `0x84` | RPM (16-bit, lo/hi) |
 | Temp Sensors 0-7 | `TP_ECOFFSET_TEMP0` | `0x78`-`0x7F` | Temperatursensoren Block 1 |
 | Temp Sensors 8-11 | `TP_ECOFFSET_TEMP1` | `0xC0`-`0xC3` | Temperatursensoren Block 2 |
-| Fan1 Select Value | `TP_ECVALUE_SELFAN1` | Unklar (P50: `0x40`) | Wert für 0x31 → Fan 1 |
-| Fan2 Select Value | `TP_ECVALUE_SELFAN2` | Unklar (P50: `0x41`) | Wert für 0x31 → Fan 2 |
+| Fan1 Select Value | `TP_ECVALUE_SELFAN1` | **`0x40` (64)** | Verifiziert P52 (RPM ~2643) |
+| Fan2 Select Value | `TP_ECVALUE_SELFAN2` | **`0x41` (65)** | Verifiziert P52 (RPM ~2291) |
 
-**Achtung**: Das P50 nutzt möglicherweise andere Select-Values als das P52. Beide Register
-müssen am echten Gerät verifiziert werden (EC-Monitor: 0x31 beobachten, während BIOS
-zwischen Lüftern wechselt).
+**Phase-0-Ergebnis (P52, 2026-05)**:
+
+| Register | Adresse | Status |
+|---|---|---|
+| Fan control | `0x2F` | Adresse OK; Wert dauerhaft `0x80` solange Lenovo/BIOS aktiv |
+| Fan switch | `0x31` | OK; Idle oft `0x21`, Mux-Schreiben mit `0x40`/`0x41` bestätigt |
+| Fan speed | `0x84`/`0x85` | OK (16-bit LE RPM) |
+| Temp0/1 | `0x78`/`0x79` | aktiv (~74°C / ~53°C); `0x7A`–`0x7F`, `0xC0`–`0xC3` = 0 |
+| Mux Fan1/Fan2 | `0x40`/`0x41` | **bestätigt** (0x80/0x81 spiegeln dieselben RPM-Paare) |
+
+Offen: Schreiben auf `0x2F` ohne `0x80` erst mit `nbfc start -w` + alle Lenovo-Dienste dauerhaft aus testen.
 
 ### Schritt 0.3 — EC-Port-Typ bestimmen
 

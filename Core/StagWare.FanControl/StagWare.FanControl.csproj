@@ -46,6 +46,7 @@
     <Reference Include="System.Management" />
     <Reference Include="System.Runtime.Serialization" />
     <Reference Include="System.ServiceModel" />
+    <Reference Include="System.ServiceProcess" />
     <Reference Include="System.Transactions" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -58,6 +59,7 @@
       <Link>Properties\CommonAssemblyInfo.cs</Link>
     </Compile>
     <Compile Include="ArithmeticMeanTemperatureFilter.cs" />
+    <Compile Include="ConflictingServiceHelper.cs" />
     <Compile Include="FanControl.cs" />
     <Compile Include="FanInformation.cs" />
     <Compile Include="Fan.cs" />

@@ -108,6 +108,14 @@
       <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
       <RefTargetDir>INSTALLFOLDER</RefTargetDir>
     </ProjectReference>
+    <ProjectReference Include="..\..\..\Core\Plugins\StagWare.Plugins.ECThinkPad\StagWare.Plugins.ECThinkPad.csproj">
+      <Name>StagWare.Plugins.ECThinkPad</Name>
+      <Project>{a8f3c2e1-9b4d-4f6a-8c7e-1d2e3f4a5b6c}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
     <ProjectReference Include="..\..\..\Core\StagWare.BiosInfo\StagWare.BiosInfo.csproj">
       <Name>StagWare.BiosInfo</Name>
       <Project>{b45bbd0f-9345-4ec8-b70d-8369659da3b4}</Project>

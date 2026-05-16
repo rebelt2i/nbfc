@@ -213,6 +213,8 @@ namespace StagWare.FanControl
 
         private void ECWriteValue(int value)
         {
+            SelectFanIfRequired();
+
             if (readWriteWords)
             {
                 this.ec.WriteWord((byte)this.fanConfig.WriteRegister, (ushort)value);
@@ -225,9 +227,21 @@ namespace StagWare.FanControl
 
         private int ECReadValue()
         {
+            SelectFanIfRequired();
+
             return readWriteWords
                 ? this.ec.ReadWord((byte)this.fanConfig.ReadRegister)
                 : this.ec.ReadByte((byte)this.fanConfig.ReadRegister);
+        }
+
+        private void SelectFanIfRequired()
+        {
+            if (this.fanConfig.FanSwitchRegister != 0)
+            {
+                this.ec.WriteByte(
+                    (byte)this.fanConfig.FanSwitchRegister,
+                    (byte)this.fanConfig.FanSwitchValue);
+            }
         }
 
         private void HandleCriticalMode(double temperature)
