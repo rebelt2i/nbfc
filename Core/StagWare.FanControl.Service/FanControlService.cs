@@ -122,7 +122,9 @@ namespace StagWare.FanControl.Service
                             CurrentFanSpeed = fanInfo[i].CurrentFanSpeed,
                             TargetFanSpeed = targetSpeed,
                             FanDisplayName = fanInfo[i].FanDisplayName,
-                            FanSpeedSteps = this.fanSpeedSteps[i]
+                            FanSpeedSteps = this.fanSpeedSteps[i],
+                            Temperature = fanInfo[i].Temperature,
+                            Rpm = fanInfo[i].Rpm
                         };
                     }
                 }

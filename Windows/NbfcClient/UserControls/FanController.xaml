@@ -7,9 +7,9 @@
     xmlns:vm="clr-namespace:NbfcClient.ViewModels"
     
     mc:Ignorable="d"  
-    Height="140" 
+    Height="158" 
     Background="White"
-    d:DesignHeight="140" 
+    d:DesignHeight="158" 
     d:DesignWidth="343"             
     d:DataContext="{d:DesignData Source=../DesignData/FanControllerViewModelData.xaml}">
 
@@ -68,6 +68,19 @@
                 FontWeight="Normal"
                 Margin="6,85,0,0"
                 VerticalAlignment="Top"/>
+
+            <Label
+                FontWeight="Normal"
+                Margin="6,102,0,0"
+                VerticalAlignment="Top"
+                Visibility="{Binding HasFanTemperature, Converter={StaticResource BoolToVisibility}}">
+                <Label.Content>
+                    <MultiBinding StringFormat="Temperature: {0} C  |  RPM: {1}">
+                        <Binding Path="FanTemperature"/>
+                        <Binding Path="FanRpm"/>
+                    </MultiBinding>
+                </Label.Content>
+            </Label>
         </Grid>
     </GroupBox>
 </UserControl>

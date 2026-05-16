@@ -18,6 +18,8 @@ namespace NbfcClient.ViewModels
         private bool isAutoFanControlEnabled;
         private string fanDisplayName;
         private bool isCriticalModeEnabled;
+        private int fanTemperature;
+        private int fanRpm;
 
         private IFanControlClient client;
         private int fanIndex;
@@ -97,6 +99,28 @@ namespace NbfcClient.ViewModels
             private set { this.Set(ref this.fanSpeedSteps, value); }
         }
 
+        public int FanTemperature
+        {
+            get { return this.fanTemperature; }
+            private set { this.Set(ref this.fanTemperature, value); }
+        }
+
+        public int FanRpm
+        {
+            get { return this.fanRpm; }
+            private set { this.Set(ref this.fanRpm, value); }
+        }
+
+        public bool HasFanTemperature
+        {
+            get { return this.fanTemperature >= 0; }
+        }
+
+        public bool HasFanRpm
+        {
+            get { return this.fanRpm > 0; }
+        }
+
         #endregion
 
         #region Public Methods
@@ -153,6 +177,10 @@ namespace NbfcClient.ViewModels
             Set(ref fanSpeedSteps, status.FanSpeedSteps, nameof(FanSpeedSteps));
             Set(ref isAutoFanControlEnabled, status.AutoControlEnabled, nameof(IsAutoFanControlEnabled));
             Set(ref isCriticalModeEnabled, status.CriticalModeEnabled, nameof(IsCriticalModeEnabled));
+            Set(ref fanTemperature, status.Temperature, nameof(FanTemperature));
+            Set(ref fanRpm, status.Rpm, nameof(FanRpm));
+            RaisePropertyChanged(nameof(HasFanTemperature));
+            RaisePropertyChanged(nameof(HasFanRpm));
 
             if (ShouldSkipSliderSync(status))
             {

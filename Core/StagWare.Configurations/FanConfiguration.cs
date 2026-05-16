@@ -44,6 +44,12 @@ namespace StagWare.FanControl.Configurations
         /// <summary>ThinkPad: optional RPM register (16-bit, little endian).</summary>
         public int FanSpeedRegister { get; set; }
 
+        /// <summary>ThinkPad: EC temperature sensor for this fan (e.g. 0x78 CPU, 0x79 GPU).</summary>
+        public int TemperatureRegister { get; set; }
+
+        /// <summary>Max RPM for converting FanSpeedRegister to percentage (e.g. 4000).</summary>
+        public int FanSpeedMaxRpm { get; set; }
+
         #region Static
 
         public static List<TemperatureThreshold> DefaultTemperatureThresholds
@@ -90,7 +96,9 @@ namespace StagWare.FanControl.Configurations
                     .Select(x => x.Clone() as FanSpeedPercentageOverride).ToList(),
                 FanSwitchRegister = this.FanSwitchRegister,
                 FanSwitchValue = this.FanSwitchValue,
-                FanSpeedRegister = this.FanSpeedRegister
+                FanSpeedRegister = this.FanSpeedRegister,
+                TemperatureRegister = this.TemperatureRegister,
+                FanSpeedMaxRpm = this.FanSpeedMaxRpm
             };
         }
 

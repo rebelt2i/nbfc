@@ -340,7 +340,7 @@ namespace StagWare.FanControl
                 Thread.VolatileWrite(ref this.requestedSpeeds[fanIndex], speed);
 
                 // Reflect user target immediately for status/UI (EC apply may lag).
-                this.fans[fanIndex].UpdateTargetSpeed(speed, this.temperature);
+                this.fans[fanIndex].UpdateTargetSpeed(speed, GetFanTemperature(fanIndex));
                 PublishFanTargetSpeed(fanIndex);
 
                 if (this.Enabled)
@@ -470,7 +470,7 @@ namespace StagWare.FanControl
             for (int i = 0; i < this.fans.Length; i++)
             {
                 float speed = Thread.VolatileRead(ref this.requestedSpeeds[i]);
-                this.fans[i].SetTargetSpeed(speed, temperature, readOnly);
+                this.fans[i].SetTargetSpeed(speed, GetFanTemperature(i), readOnly);
 
                 if (!readOnly && retryCount > 1)
                 {
@@ -506,7 +506,7 @@ namespace StagWare.FanControl
             for (int i = 0; i < this.fans.Length; i++)
             {
                 float speed = Thread.VolatileRead(ref this.requestedSpeeds[i]);
-                this.fans[i].UpdateTargetSpeed(speed, temperature);
+                this.fans[i].UpdateTargetSpeed(speed, GetFanTemperature(i));
             }
 
             for (int attempt = 0; attempt < retryCount; attempt++)
@@ -574,15 +574,32 @@ namespace StagWare.FanControl
 
                 float targetSpeed = GetDisplayedTargetSpeed(i);
 
+                int temp = this.fans[i].ReadEcTemperature();
+                int rpm = this.fans[i].ReadRpm();
+
                 info[i] = new FanInformation(
                     targetSpeed,
                     this.fans[i].CurrentSpeed,
                     this.fans[i].AutoControlEnabled,
                     this.fans[i].CriticalModeEnabled,
-                    this.config.FanConfigurations[i].FanDisplayName);
+                    this.config.FanConfigurations[i].FanDisplayName,
+                    temp,
+                    rpm);
             }
 
             return info;
+        }
+
+        private float GetFanTemperature(int fanIndex)
+        {
+            int ecTemp = this.fans[fanIndex].ReadEcTemperature();
+
+            if (ecTemp >= 0)
+            {
+                return ecTemp;
+            }
+
+            return this.temperature;
         }
 
         private float GetDisplayedTargetSpeed(int fanIndex)
@@ -612,7 +629,9 @@ namespace StagWare.FanControl
                 current.CurrentFanSpeed,
                 current.AutoFanControlEnabled,
                 current.CriticalModeEnabled,
-                current.FanDisplayName);
+                current.FanDisplayName,
+                current.Temperature,
+                current.Rpm);
         }
 
         private void StopFanControlCore()

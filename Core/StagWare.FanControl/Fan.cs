@@ -174,6 +174,13 @@ namespace StagWare.FanControl
 
         public virtual float GetCurrentSpeed()
         {
+            if (this.fanConfig.FanSpeedRegister > 0 && this.fanConfig.FanSpeedMaxRpm > 0)
+            {
+                int rpm = ReadRpm();
+                CurrentSpeed = Math.Min(100.0f, (rpm * 100.0f) / this.fanConfig.FanSpeedMaxRpm);
+                return CurrentSpeed;
+            }
+
             int speed = 0;
 
             // If the value is out of range 3 or more times,
@@ -190,6 +197,35 @@ namespace StagWare.FanControl
 
             CurrentSpeed = FanSpeedToPercentage(speed);
             return CurrentSpeed;
+        }
+
+        internal int ReadEcTemperature()
+        {
+            if (this.fanConfig.TemperatureRegister <= 0)
+            {
+                return -1;
+            }
+
+            return this.ec.ReadByte((byte)this.fanConfig.TemperatureRegister);
+        }
+
+        internal int ReadRpm()
+        {
+            if (this.fanConfig.FanSpeedRegister <= 0)
+            {
+                return 0;
+            }
+
+            SelectFanIfRequired();
+
+            if (readWriteWords)
+            {
+                return this.ec.ReadWord((byte)this.fanConfig.FanSpeedRegister);
+            }
+
+            int lo = this.ec.ReadByte((byte)this.fanConfig.FanSpeedRegister);
+            int hi = this.ec.ReadByte((byte)(this.fanConfig.FanSpeedRegister + 1));
+            return lo | (hi << 8);
         }
 
         public virtual void Reset()

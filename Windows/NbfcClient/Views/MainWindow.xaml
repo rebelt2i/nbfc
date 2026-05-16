@@ -150,7 +150,7 @@
 
             <TextBlock 
                 HorizontalAlignment="Left"
-                Text="{Binding TemperatureSourceName, StringFormat=Temperature (\{0\}):}" 
+                Text="Temperature:" 
                 VerticalAlignment="Top" 
                 Margin="0,0,7,0"
                 FontWeight="Medium"
@@ -158,7 +158,7 @@
 
             <TextBlock 
                 HorizontalAlignment="Left"
-                Text="{Binding Temperature, StringFormat=\{0\}°C}"
+                Text="{Binding TemperatureSourceName}"
                 VerticalAlignment="Top"/>
         </StackPanel>
 

@@ -25,6 +25,8 @@
       <FanSwitchRegister>49</FanSwitchRegister>
       <FanSwitchValue>64</FanSwitchValue>
       <FanSpeedRegister>132</FanSpeedRegister>
+      <TemperatureRegister>120</TemperatureRegister>
+      <FanSpeedMaxRpm>4000</FanSpeedMaxRpm>
       <TemperatureThresholds>
         <TemperatureThreshold>
           <UpThreshold>0</UpThreshold>
@@ -73,6 +75,8 @@
       <FanSwitchRegister>49</FanSwitchRegister>
       <FanSwitchValue>65</FanSwitchValue>
       <FanSpeedRegister>132</FanSpeedRegister>
+      <TemperatureRegister>121</TemperatureRegister>
+      <FanSpeedMaxRpm>4000</FanSpeedMaxRpm>
       <TemperatureThresholds>
         <TemperatureThreshold>
           <UpThreshold>0</UpThreshold>

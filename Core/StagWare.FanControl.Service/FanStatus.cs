@@ -22,5 +22,11 @@ namespace StagWare.FanControl.Service
 
         [DataMember]
         public int FanSpeedSteps { get; set; }
+
+        [DataMember]
+        public int Temperature { get; set; }
+
+        [DataMember]
+        public int Rpm { get; set; }
     }
 }
