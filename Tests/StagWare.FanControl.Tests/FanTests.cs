@@ -233,6 +233,50 @@ namespace StagWare.FanControl.Tests
             }
         }
 
+        public class ThinkPadMux
+        {
+            [Fact]
+            public static void UpdateTargetSpeedDoesNotWriteEc()
+            {
+                var ec = A.Fake<IEmbeddedController>();
+                var cfg = new FanConfiguration()
+                {
+                    WriteRegister = 0x2F,
+                    FanSwitchRegister = 0x31,
+                    FanSwitchValue = 0x40,
+                    MinSpeedValue = 0,
+                    MaxSpeedValue = 7
+                };
+
+                var fan = new Fan(ec, cfg, 100, false);
+                fan.UpdateTargetSpeed(50, 40);
+
+                A.CallTo(() => ec.WriteByte(A<byte>.Ignored, A<byte>.Ignored))
+                    .MustNotHaveHappened();
+            }
+
+            [Fact]
+            public static void ApplyTargetToEcWritesMuxThenFanRegister()
+            {
+                var ec = A.Fake<IEmbeddedController>();
+                var cfg = new FanConfiguration()
+                {
+                    WriteRegister = 0x2F,
+                    FanSwitchRegister = 0x31,
+                    FanSwitchValue = 0x40,
+                    MinSpeedValue = 0,
+                    MaxSpeedValue = 7
+                };
+
+                var fan = new Fan(ec, cfg, 100, false);
+                fan.UpdateTargetSpeed(100, 40);
+                fan.ApplyTargetToEc();
+
+                A.CallTo(() => ec.WriteByte(0x31, 0x40)).MustHaveHappened();
+                A.CallTo(() => ec.WriteByte(0x2F, 7)).MustHaveHappened();
+            }
+        }
+
         public class Reset
         {
             [Fact]

@@ -114,6 +114,19 @@ namespace StagWare.FanControl
 
         public virtual void SetTargetSpeed(float speed, float temperature, bool readOnly)
         {
+            UpdateTargetSpeed(speed, temperature);
+
+            if (!readOnly)
+            {
+                ApplyTargetToEc();
+            }
+        }
+
+        /// <summary>
+        /// Updates target speed state without writing to the EC (used for ThinkPad dual-fan batch writes).
+        /// </summary>
+        internal void UpdateTargetSpeed(float speed, float temperature)
+        {
             HandleCriticalMode(temperature);
             this.AutoControlEnabled = (speed < 0) || (speed > 100);
 
@@ -130,17 +143,44 @@ namespace StagWare.FanControl
             {
                 this.targetFanSpeed = speed;
             }
+        }
 
-            speed = CriticalModeEnabled ? 100.0f : this.targetFanSpeed;
+        internal void ApplyTargetToEc()
+        {
+            float speed = CriticalModeEnabled ? 100.0f : this.targetFanSpeed;
+            ECWriteValue(PercentageToFanSpeed(speed));
+        }
 
-            if (!readOnly)
-            {
-                ECWriteValue(PercentageToFanSpeed(speed));
-            }
+        internal int GetTargetEcSpeedValue()
+        {
+            float speed = CriticalModeEnabled ? 100.0f : this.targetFanSpeed;
+            return PercentageToFanSpeed(speed);
+        }
+
+        internal int ReadEcSpeedRaw()
+        {
+            return ECReadValue();
+        }
+
+        internal bool IsBiosControlledEcValue(int ecValue)
+        {
+            return (ecValue & 0x80) != 0;
+        }
+
+        internal FanConfiguration FanConfig
+        {
+            get { return this.fanConfig; }
         }
 
         public virtual float GetCurrentSpeed()
         {
+            if (this.fanConfig.FanSpeedRegister > 0 && this.fanConfig.FanSpeedMaxRpm > 0)
+            {
+                int rpm = ReadRpm();
+                CurrentSpeed = Math.Min(100.0f, (rpm * 100.0f) / this.fanConfig.FanSpeedMaxRpm);
+                return CurrentSpeed;
+            }
+
             int speed = 0;
 
             // If the value is out of range 3 or more times,
@@ -157,6 +197,30 @@ namespace StagWare.FanControl
 
             CurrentSpeed = FanSpeedToPercentage(speed);
             return CurrentSpeed;
+        }
+
+        internal int ReadEcTemperature()
+        {
+            return ThinkPadEcTemperature.Read(this.ec, this.fanConfig);
+        }
+
+        internal int ReadRpm()
+        {
+            if (this.fanConfig.FanSpeedRegister <= 0)
+            {
+                return 0;
+            }
+
+            SelectFanIfRequired();
+
+            if (readWriteWords)
+            {
+                return this.ec.ReadWord((byte)this.fanConfig.FanSpeedRegister);
+            }
+
+            int lo = this.ec.ReadByte((byte)this.fanConfig.FanSpeedRegister);
+            int hi = this.ec.ReadByte((byte)(this.fanConfig.FanSpeedRegister + 1));
+            return lo | (hi << 8);
         }
 
         public virtual void Reset()
@@ -213,6 +277,8 @@ namespace StagWare.FanControl
 
         private void ECWriteValue(int value)
         {
+            SelectFanIfRequired();
+
             if (readWriteWords)
             {
                 this.ec.WriteWord((byte)this.fanConfig.WriteRegister, (ushort)value);
@@ -225,9 +291,21 @@ namespace StagWare.FanControl
 
         private int ECReadValue()
         {
+            SelectFanIfRequired();
+
             return readWriteWords
                 ? this.ec.ReadWord((byte)this.fanConfig.ReadRegister)
                 : this.ec.ReadByte((byte)this.fanConfig.ReadRegister);
+        }
+
+        private void SelectFanIfRequired()
+        {
+            if (this.fanConfig.FanSwitchRegister != 0)
+            {
+                this.ec.WriteByte(
+                    (byte)this.fanConfig.FanSwitchRegister,
+                    (byte)this.fanConfig.FanSwitchValue);
+            }
         }
 
         private void HandleCriticalMode(double temperature)

@@ -73,8 +73,8 @@ namespace StagWare.FanControl
         public FanControl(FanControlConfigV2 config, ITemperatureFilter filter, string pluginsDirectory) : this(
             config,
             filter,
-            LoadPlugin<IEmbeddedController>(pluginsDirectory),
-            LoadPlugin<ITemperatureMonitor>(pluginsDirectory))
+            LoadPlugin<IEmbeddedController>(pluginsDirectory, config.EcPluginId),
+            LoadPlugin<ITemperatureMonitor>(pluginsDirectory, null))
         {
         }
 
@@ -109,6 +109,13 @@ namespace StagWare.FanControl
             this.tempFilter = filter;
             this.config = (FanControlConfigV2)config.Clone();
             this.pollInterval = config.EcPollInterval;
+
+            if (config.UseThinkPadEcProtocol
+                && config.FanWriteRetryInterval > 0
+                && config.FanWriteRetryInterval < this.pollInterval)
+            {
+                this.pollInterval = Math.Max(MinPollInterval, config.FanWriteRetryInterval);
+            }
             this.requestedSpeeds = new float[config.FanConfigurations.Count];
             this.fanInfo = new FanInformation[config.FanConfigurations.Count];
             this.fans = new Fan[config.FanConfigurations.Count];
@@ -152,7 +159,8 @@ namespace StagWare.FanControl
             this.fans = fans;
         }
 
-        private static T LoadPlugin<T>(string pluginsDirectory) where T : IFanControlPlugin
+        private static T LoadPlugin<T>(string pluginsDirectory, string preferredPluginId)
+            where T : IFanControlPlugin
         {
             if (pluginsDirectory == null)
             {
@@ -164,12 +172,15 @@ namespace StagWare.FanControl
                 throw new DirectoryNotFoundException(pluginsDirectory + " could not be found.");
             }
 
-            var pluginLoader = new FanControlPluginLoader<T>(pluginsDirectory);
+            var pluginLoader = new FanControlPluginLoader<T>(pluginsDirectory, preferredPluginId);
 
             if (pluginLoader.FanControlPlugin == null)
             {
                 throw new PlatformNotSupportedException(
-                    "Could not load a  plugin which implements " + typeof(T));
+                    "Could not load a plugin which implements " + typeof(T)
+                    + (string.IsNullOrWhiteSpace(preferredPluginId)
+                        ? string.Empty
+                        : " (requested: " + preferredPluginId + ")"));
             }
 
             return pluginLoader.FanControlPlugin;
@@ -301,6 +312,15 @@ namespace StagWare.FanControl
 
                 if (!readOnly)
                 {
+                    if (this.config.StopConflictingServices)
+                    {
+                        ConflictingServiceHelper.TryStopConflictingServices();
+                    }
+                    else
+                    {
+                        ConflictingServiceHelper.WarnIfConflictingServicesRunning();
+                    }
+
                     InitializeRegisterWriteConfigurations();
                 }
 
@@ -318,6 +338,10 @@ namespace StagWare.FanControl
             if (fanIndex >= 0 && fanIndex < this.requestedSpeeds.Length)
             {
                 Thread.VolatileWrite(ref this.requestedSpeeds[fanIndex], speed);
+
+                // Reflect user target immediately for status/UI (EC apply may lag).
+                this.fans[fanIndex].UpdateTargetSpeed(speed, GetFanTemperature(fanIndex));
+                PublishFanTargetSpeed(fanIndex);
 
                 if (this.Enabled)
                 {
@@ -423,15 +447,121 @@ namespace StagWare.FanControl
                 ApplyRegisterWriteConfigurations(reInitRequired);
             }
 
-            // Set requested fan speeds
-            for (int i = 0; i < this.fans.Length; i++)
+            if (!readOnly && this.config.UseThinkPadEcProtocol)
             {
-                float speed = Thread.VolatileRead(ref this.requestedSpeeds[i]);
-                this.fans[i].SetTargetSpeed(speed, temperature, readOnly);
+                ApplyThinkPadEcFanSpeeds(temperature);
+            }
+            else
+            {
+                ApplyStandardEcFanSpeeds(temperature, readOnly);
             }
 
             // Update fanInfo
             this.fanInfo = GetFanInformation();
+        }
+
+        private void ApplyStandardEcFanSpeeds(float temperature, bool readOnly)
+        {
+            int retryCount = Math.Max(1, this.config.FanWriteRetryCount);
+            int retryDelayMs = this.config.FanWriteRetryInterval > 0
+                ? this.config.FanWriteRetryInterval
+                : 100;
+
+            for (int i = 0; i < this.fans.Length; i++)
+            {
+                float speed = Thread.VolatileRead(ref this.requestedSpeeds[i]);
+                this.fans[i].SetTargetSpeed(speed, GetFanTemperature(i), readOnly);
+
+                if (!readOnly && retryCount > 1)
+                {
+                    for (int attempt = 1; attempt < retryCount; attempt++)
+                    {
+                        Thread.Sleep(retryDelayMs);
+                        this.fans[i].GetCurrentSpeed();
+
+                        if (Math.Abs(this.fans[i].CurrentSpeed - this.fans[i].TargetSpeed) <= 15)
+                        {
+                            break;
+                        }
+
+                        this.fans[i].SetTargetSpeed(speed, temperature, readOnly);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// ThinkPad dual-fan protocol: write both fans in one sequence with verify/retry (TPFanCtrl2 SetFan).
+        /// </summary>
+        private void ApplyThinkPadEcFanSpeeds(float temperature)
+        {
+            const int delayBetweenFansMs = 50;
+            const int delayBetweenAttemptsMs = 200;
+
+            int retryCount = Math.Max(1, this.config.FanWriteRetryCount);
+            int retryDelayMs = this.config.FanWriteRetryInterval > 0
+                ? this.config.FanWriteRetryInterval
+                : 100;
+
+            for (int i = 0; i < this.fans.Length; i++)
+            {
+                float speed = Thread.VolatileRead(ref this.requestedSpeeds[i]);
+                this.fans[i].UpdateTargetSpeed(speed, GetFanTemperature(i));
+            }
+
+            for (int attempt = 0; attempt < retryCount; attempt++)
+            {
+                for (int i = 0; i < this.fans.Length; i++)
+                {
+                    this.fans[i].ApplyTargetToEc();
+                    Thread.Sleep(delayBetweenFansMs);
+                }
+
+                if (VerifyThinkPadEcFanSpeeds())
+                {
+                    return;
+                }
+
+                if (attempt + 1 < retryCount)
+                {
+                    Thread.Sleep(Math.Max(retryDelayMs, delayBetweenAttemptsMs));
+                }
+            }
+
+            if (!VerifyThinkPadEcFanSpeeds())
+            {
+                int reg = this.fans.Length > 0
+                    ? this.fans[0].FanConfig.WriteRegister
+                    : 0x2F;
+                int sample = this.fans.Length > 0 ? this.fans[0].ReadEcSpeedRaw() : -1;
+
+                logger.Warn(
+                    "ThinkPad EC fan control still in BIOS mode or not applied (register {0} read 0x{1:X2}, expected manual level). "
+                    + "Stop Lenovo thermal services and verify Phase 0 write test.",
+                    reg,
+                    sample);
+            }
+        }
+
+        private bool VerifyThinkPadEcFanSpeeds()
+        {
+            for (int i = 0; i < this.fans.Length; i++)
+            {
+                int expected = this.fans[i].GetTargetEcSpeedValue();
+                int actual = this.fans[i].ReadEcSpeedRaw();
+
+                if (this.fans[i].IsBiosControlledEcValue(actual))
+                {
+                    return false;
+                }
+
+                if ((actual & 0x7F) != (expected & 0x7F))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private FanInformation[] GetFanInformation()
@@ -442,15 +572,66 @@ namespace StagWare.FanControl
             {
                 this.fans[i].GetCurrentSpeed();
 
+                float targetSpeed = GetDisplayedTargetSpeed(i);
+
+                int temp = this.fans[i].ReadEcTemperature();
+                int rpm = this.fans[i].ReadRpm();
+
                 info[i] = new FanInformation(
-                    this.fans[i].TargetSpeed,
+                    targetSpeed,
                     this.fans[i].CurrentSpeed,
                     this.fans[i].AutoControlEnabled,
                     this.fans[i].CriticalModeEnabled,
-                    this.config.FanConfigurations[i].FanDisplayName);
+                    this.config.FanConfigurations[i].FanDisplayName,
+                    temp,
+                    rpm);
             }
 
             return info;
+        }
+
+        private float GetFanTemperature(int fanIndex)
+        {
+            int ecTemp = this.fans[fanIndex].ReadEcTemperature();
+
+            if (ecTemp >= 0)
+            {
+                return ecTemp;
+            }
+
+            return this.temperature;
+        }
+
+        private float GetDisplayedTargetSpeed(int fanIndex)
+        {
+            float requested = Thread.VolatileRead(ref this.requestedSpeeds[fanIndex]);
+
+            if (requested >= 0 && requested <= 100)
+            {
+                return requested;
+            }
+
+            return this.fans[fanIndex].TargetSpeed;
+        }
+
+        private void PublishFanTargetSpeed(int fanIndex)
+        {
+            if (this.fanInfo == null || fanIndex < 0 || fanIndex >= this.fanInfo.Length)
+            {
+                return;
+            }
+
+            float targetSpeed = GetDisplayedTargetSpeed(fanIndex);
+            var current = this.fanInfo[fanIndex];
+
+            this.fanInfo[fanIndex] = new FanInformation(
+                targetSpeed,
+                current.CurrentFanSpeed,
+                current.AutoFanControlEnabled,
+                current.CriticalModeEnabled,
+                current.FanDisplayName,
+                current.Temperature,
+                current.Rpm);
         }
 
         private void StopFanControlCore()

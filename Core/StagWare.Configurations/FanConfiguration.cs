@@ -35,6 +35,21 @@ namespace StagWare.FanControl.Configurations
         public List<TemperatureThreshold> TemperatureThresholds { get; set; }
         public List<FanSpeedPercentageOverride> FanSpeedPercentageOverrides { get; set; }
 
+        /// <summary>ThinkPad: EC register to select fan before read/write (e.g. 0x31).</summary>
+        public int FanSwitchRegister { get; set; }
+
+        /// <summary>ThinkPad: value written to FanSwitchRegister for this fan (e.g. 0x40 / 0x41).</summary>
+        public int FanSwitchValue { get; set; }
+
+        /// <summary>ThinkPad: optional RPM register (16-bit, little endian).</summary>
+        public int FanSpeedRegister { get; set; }
+
+        /// <summary>ThinkPad: EC temperature sensor for this fan (e.g. 0x78 CPU, 0x79 GPU).</summary>
+        public int TemperatureRegister { get; set; }
+
+        /// <summary>Max RPM for converting FanSpeedRegister to percentage (e.g. 4000).</summary>
+        public int FanSpeedMaxRpm { get; set; }
+
         #region Static
 
         public static List<TemperatureThreshold> DefaultTemperatureThresholds
@@ -78,7 +93,12 @@ namespace StagWare.FanControl.Configurations
                 TemperatureThresholds = this.TemperatureThresholds
                     .Select(x => x.Clone() as TemperatureThreshold).ToList(),
                 FanSpeedPercentageOverrides = this.FanSpeedPercentageOverrides
-                    .Select(x => x.Clone() as FanSpeedPercentageOverride).ToList()
+                    .Select(x => x.Clone() as FanSpeedPercentageOverride).ToList(),
+                FanSwitchRegister = this.FanSwitchRegister,
+                FanSwitchValue = this.FanSwitchValue,
+                FanSpeedRegister = this.FanSpeedRegister,
+                TemperatureRegister = this.TemperatureRegister,
+                FanSpeedMaxRpm = this.FanSpeedMaxRpm
             };
         }
 

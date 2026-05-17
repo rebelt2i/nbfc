@@ -39,6 +39,19 @@ namespace StagWare.FanControl.Configurations.Tests
                 Assert.Null(cfgMan.SelectedConfig);
                 Assert.Null(cfgMan.SelectedConfigName);
             }
+
+            [Fact]
+            public static void ResolvesConfigNameCaseInsensitively()
+            {
+                var cfgMan = new FanControlConfigManager(
+                    Environment.CurrentDirectory, ".xml", new MockFileSystem());
+                const string cfgName = "Lenovo ThinkPad P52";
+
+                cfgMan.AddConfig(new FanControlConfigV2(), cfgName);
+
+                Assert.True(cfgMan.SelectConfig("lenovo thinkpad p52"));
+                Assert.Equal(cfgName, cfgMan.SelectedConfigName);
+            }
         }
 
         public class RecommendConfigs

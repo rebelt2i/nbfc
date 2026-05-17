@@ -1,27 +1,34 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Windows;
+﻿using NbfcClient.ViewModels;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.Windows.Controls.Primitives;
 
 namespace NbfcClient.UserControls
 {
-    /// <summary>
-    /// Interaction logic for FanController.xaml
-    /// </summary>
     public partial class FanController : UserControl
     {
         public FanController()
         {
             InitializeComponent();
+            Loaded += FanController_Loaded;
+        }
+
+        private void FanController_Loaded(object sender, System.Windows.RoutedEventArgs e)
+        {
+            var vm = DataContext as FanControllerViewModel;
+            if (vm == null)
+            {
+                return;
+            }
+
+            FanSpeedSlider.AddHandler(
+                Thumb.DragStartedEvent,
+                new DragStartedEventHandler((s, args) => vm.NotifySliderDragStarted()),
+                true);
+
+            FanSpeedSlider.AddHandler(
+                Thumb.DragCompletedEvent,
+                new DragCompletedEventHandler((s, args) => vm.NotifySliderDragCompleted()),
+                true);
         }
     }
 }

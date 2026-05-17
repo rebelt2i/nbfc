@@ -194,6 +194,28 @@ namespace NbfcClient.ViewModels
             TrayIcon = this.renderer.RenderIcon(temperature.ToString());
         }
 
+        private static string BuildTemperatureSummary(FanControlInfo info)
+        {
+            if (info.FanStatus == null || info.FanStatus.Length == 0)
+            {
+                return info.TemperatureSourceDisplayName ?? "CPU";
+            }
+
+            var parts = info.FanStatus
+                .Where(s => s != null)
+                .Select(s => s.Temperature > 0
+                    ? string.Format("{0} {1} C", s.FanDisplayName, s.Temperature)
+                    : string.Format("{0} n/a", s.FanDisplayName))
+                .ToArray();
+
+            if (parts.Length > 0)
+            {
+                return string.Join("  |  ", parts);
+            }
+
+            return info.TemperatureSourceDisplayName ?? "CPU";
+        }
+
         private void UpdateProperties(FanControlInfo info)
         {
             Set(ref isServiceDisabled, !info.Enabled, nameof(IsServiceDisabled));
@@ -201,7 +223,7 @@ namespace NbfcClient.ViewModels
             Set(ref isServiceEnabled, (info.Enabled && !info.ReadOnly), nameof(IsServiceEnabled));
             Set(ref temperature, info.Temperature, nameof(Temperature));
             Set(ref selectedConfig, info.SelectedConfig, nameof(SelectedConfig));
-            Set(ref temperatureSourceName, info.TemperatureSourceDisplayName, nameof(TemperatureSourceName));
+            Set(ref temperatureSourceName, BuildTemperatureSummary(info), nameof(TemperatureSourceName));
 
             if (info.FanStatus == null)
             {

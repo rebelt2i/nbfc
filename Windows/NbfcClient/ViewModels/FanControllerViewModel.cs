@@ -18,9 +18,13 @@ namespace NbfcClient.ViewModels
         private bool isAutoFanControlEnabled;
         private string fanDisplayName;
         private bool isCriticalModeEnabled;
+        private int fanTemperature;
+        private int fanRpm;
 
         private IFanControlClient client;
         private int fanIndex;
+        private int sliderDragCount;
+        private DateTime suppressSliderSyncUntilUtc;
 
         #endregion
 
@@ -34,11 +38,11 @@ namespace NbfcClient.ViewModels
             Messenger.Default.Register<ReloadFanControlInfoMessage>(this, Refresh);
 
             Refresh(true);
-        }        
+        }
 
         #endregion
 
-        #region Properties        
+        #region Properties
 
         public float CurrentFanSpeedLevel
         {
@@ -47,6 +51,7 @@ namespace NbfcClient.ViewModels
             {
                 if (Set(ref this.currentFanSpeedLevel, value))
                 {
+                    suppressSliderSyncUntilUtc = DateTime.UtcNow.AddSeconds(2);
                     client.SetTargetFanSpeed(GetFanSpeedPercentage(value), fanIndex);
                 }
             }
@@ -94,6 +99,47 @@ namespace NbfcClient.ViewModels
             private set { this.Set(ref this.fanSpeedSteps, value); }
         }
 
+        public int FanTemperature
+        {
+            get { return this.fanTemperature; }
+            private set { this.Set(ref this.fanTemperature, value); }
+        }
+
+        public int FanRpm
+        {
+            get { return this.fanRpm; }
+            private set { this.Set(ref this.fanRpm, value); }
+        }
+
+        public string FanTemperatureText
+        {
+            get { return this.fanTemperature > 0 ? (this.fanTemperature + " C") : "n/a"; }
+        }
+
+        public string FanRpmText
+        {
+            get { return this.fanRpm > 0 ? this.fanRpm.ToString() : "n/a"; }
+        }
+
+        #endregion
+
+        #region Public Methods
+
+        public void NotifySliderDragStarted()
+        {
+            this.sliderDragCount++;
+        }
+
+        public void NotifySliderDragCompleted()
+        {
+            if (this.sliderDragCount > 0)
+            {
+                this.sliderDragCount--;
+            }
+
+            this.suppressSliderSyncUntilUtc = DateTime.UtcNow.AddSeconds(1);
+        }
+
         #endregion
 
         #region Private Methods
@@ -131,6 +177,15 @@ namespace NbfcClient.ViewModels
             Set(ref fanSpeedSteps, status.FanSpeedSteps, nameof(FanSpeedSteps));
             Set(ref isAutoFanControlEnabled, status.AutoControlEnabled, nameof(IsAutoFanControlEnabled));
             Set(ref isCriticalModeEnabled, status.CriticalModeEnabled, nameof(IsCriticalModeEnabled));
+            Set(ref fanTemperature, status.Temperature, nameof(FanTemperature));
+            Set(ref fanRpm, status.Rpm, nameof(FanRpm));
+            RaisePropertyChanged(nameof(FanTemperatureText));
+            RaisePropertyChanged(nameof(FanRpmText));
+
+            if (ShouldSkipSliderSync(status))
+            {
+                return;
+            }
 
             if (status.AutoControlEnabled)
             {
@@ -142,6 +197,26 @@ namespace NbfcClient.ViewModels
                 int level = (int)Math.Round((status.TargetFanSpeed / 100.0) * status.FanSpeedSteps);
                 Set(ref currentFanSpeedLevel, level, nameof(CurrentFanSpeedLevel));
             }
+        }
+
+        private bool ShouldSkipSliderSync(FanStatus status)
+        {
+            if (status.AutoControlEnabled)
+            {
+                return false;
+            }
+
+            if (this.sliderDragCount > 0)
+            {
+                return true;
+            }
+
+            if (DateTime.UtcNow < this.suppressSliderSyncUntilUtc)
+            {
+                return true;
+            }
+
+            return false;
         }
 
         private float GetFanSpeedPercentage(float sliderValue)

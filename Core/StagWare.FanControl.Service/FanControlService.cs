@@ -101,16 +101,30 @@ namespace StagWare.FanControl.Service
                     ReadOnlyCollection<FanInformation> fanInfo = this.fanControl.FanInformation;
                     info.FanStatus = new FanStatus[fanInfo.Count];
 
+                    float[] savedTargets = SettingsService.Settings.TargetFanSpeeds;
+
                     for (int i = 0; i < fanInfo.Count; i++)
                     {
+                        float targetSpeed = fanInfo[i].TargetFanSpeed;
+
+                        if (savedTargets != null
+                            && i < savedTargets.Length
+                            && savedTargets[i] >= 0
+                            && savedTargets[i] <= 100)
+                        {
+                            targetSpeed = savedTargets[i];
+                        }
+
                         info.FanStatus[i] = new FanStatus()
                         {
                             AutoControlEnabled = fanInfo[i].AutoFanControlEnabled,
                             CriticalModeEnabled = fanInfo[i].CriticalModeEnabled,
                             CurrentFanSpeed = fanInfo[i].CurrentFanSpeed,
-                            TargetFanSpeed = fanInfo[i].TargetFanSpeed,
+                            TargetFanSpeed = targetSpeed,
                             FanDisplayName = fanInfo[i].FanDisplayName,
-                            FanSpeedSteps = this.fanSpeedSteps[i]
+                            FanSpeedSteps = this.fanSpeedSteps[i],
+                            Temperature = fanInfo[i].Temperature,
+                            Rpm = fanInfo[i].Rpm
                         };
                     }
                 }
@@ -308,6 +322,14 @@ namespace StagWare.FanControl.Service
                 }
 
                 success = true;
+            }
+            catch (Exception ex)
+            {
+                logger.Error(
+                    ex,
+                    "Failed to initialize fan control (check EC plugin, WinRing0 driver, and config '{0}')",
+                    cfg.NotebookModel);
+                success = false;
             }
             finally
             {

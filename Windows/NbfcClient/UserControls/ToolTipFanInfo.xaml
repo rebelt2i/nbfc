@@ -24,7 +24,7 @@
 
         <Label
             x:Name="text"
-            Content="{Binding FanDisplayName}"
+            Content="{Binding FanDisplayName, Mode=OneWay}"
             Margin="10,2,10,0" 
             VerticalAlignment="Top" 
             Foreground="#FF3C3C3C" 
@@ -37,14 +37,14 @@
             Foreground="#FF3C3C3C">
             
             <MultiBinding Converter="{StaticResource FanSpeedToString}">
-                <Binding Path="TargetFanSpeed"/>
-                <Binding Path="IsAutoFanControlEnabled"/>
-                <Binding Path="IsCriticalModeEnabled" />
+                <Binding Path="TargetFanSpeed" Mode="OneWay"/>
+                <Binding Path="IsAutoFanControlEnabled" Mode="OneWay"/>
+                <Binding Path="IsCriticalModeEnabled" Mode="OneWay" />
             </MultiBinding>
         </Label>
         
         <Label
-            Content="{Binding CurrentFanSpeed}" 
+            Content="{Binding CurrentFanSpeed, Mode=OneWay}" 
             ContentStringFormat="Current fan speed:  {0:0.0}%" 
             Margin="10,57,10,0" 
             VerticalAlignment="Top" 

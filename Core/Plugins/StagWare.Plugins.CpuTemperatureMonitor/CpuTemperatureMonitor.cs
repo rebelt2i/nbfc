@@ -50,6 +50,11 @@ namespace StagWare.Plugins.Generic
         {
             KeyValuePair<string, double>[] temps = this.hwMon.CpuTemperatures;
 
+            if (temps == null || temps.Length == 0)
+            {
+                return 0;
+            }
+
             double temperature = 0;
 
             foreach (KeyValuePair<string, double> pair in temps)

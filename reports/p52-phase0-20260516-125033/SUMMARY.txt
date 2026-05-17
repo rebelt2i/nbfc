@@ -1,0 +1,21 @@
+﻿Phase 0 report: 2026-05-16T12:51:05.7843319+02:00
+Machine: PEGASUS-P52
+ec-probe: E:\Repositories\nbfc\Core\NbfcProbe\bin\Release\ec-probe.exe
+Plugin: StagWare.Plugins.ECThinkPad
+
+Expected for Lenovo ThinkPad P52 (verify on this machine):
+  FanControl register     : 0x2F  (current: 0x80)
+  FanSwitch register      : 0x31
+  FanSpeed register (lo)  : 0x84 (+1 for hi byte)
+  Fan1 switch value       : 64 (0x40) if mux test matched P50 pair
+  Fan2 switch value       : 65 (0x41) if mux test matched P50 pair
+  EcPluginId in XML       : StagWare.Plugins.ECThinkPad
+
+Files in: E:\Repositories\nbfc\reports\p52-phase0-20260516-125033
+  key-registers.csv
+  ec-dump.txt
+  lenovo-services.csv
+  fan-switch-test.csv (if -AllowWriteTests)
+  ec-monitor.csv (if monitoring ran)
+
+Update Configs\Lenovo ThinkPad P52.xml with verified FanSwitchValue entries.

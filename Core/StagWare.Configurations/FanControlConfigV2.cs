@@ -24,6 +24,17 @@ namespace StagWare.FanControl.Configurations
         public List<FanConfiguration> FanConfigurations { get; set; }
         public List<RegisterWriteConfiguration> RegisterWriteConfigurations { get; set; }
 
+        /// <summary>MEF plugin id for EC access (e.g. StagWare.Plugins.ECThinkPad).</summary>
+        public string EcPluginId { get; set; }
+
+        public bool UseThinkPadEcProtocol { get; set; }
+
+        public int FanWriteRetryCount { get; set; }
+
+        public int FanWriteRetryInterval { get; set; }
+
+        public bool StopConflictingServices { get; set; }
+
         #endregion
 
         #region Constructor
@@ -32,6 +43,8 @@ namespace StagWare.FanControl.Configurations
         {
             this.CriticalTemperature = 75;
             this.EcPollInterval = 3000;
+            this.FanWriteRetryCount = 1;
+            this.FanWriteRetryInterval = 0;
             this.FanConfigurations = new List<FanConfiguration>();
             this.RegisterWriteConfigurations = new List<RegisterWriteConfiguration>();
         }
@@ -128,7 +141,12 @@ namespace StagWare.FanControl.Configurations
                 .Select(x => x.Clone() as FanConfiguration).ToList(),
 
                 RegisterWriteConfigurations = this.RegisterWriteConfigurations
-                .Select(x => x.Clone() as RegisterWriteConfiguration).ToList()
+                .Select(x => x.Clone() as RegisterWriteConfiguration).ToList(),
+                EcPluginId = this.EcPluginId,
+                UseThinkPadEcProtocol = this.UseThinkPadEcProtocol,
+                FanWriteRetryCount = this.FanWriteRetryCount,
+                FanWriteRetryInterval = this.FanWriteRetryInterval,
+                StopConflictingServices = this.StopConflictingServices
             };
         }
 

@@ -26,6 +26,23 @@
         </File>
       </Component>
 
+      <Component Id="Plg.StagWare.Plugins.ECThinkPad"
+                 Guid="B1C2D3E4-F5A6-4789-ABCD-EF0123456789">
+        <File Id="StagWare.Plugins.ECThinkPad.dll"
+              Name="StagWare.Plugins.ECThinkPad.dll"
+              DiskId="1"
+              Vital="yes"
+              KeyPath="yes"
+              Source="$(var.StagWare.Plugins.ECThinkPad.TargetDir)StagWare.Plugins.ECThinkPad.dll">
+
+          <?if $(var.Configuration) = "Release"?>
+          <netfx:NativeImage Id="StagWare.Plugins.ECThinkPad.NativeImage"
+                             Priority="1"
+                             Platform="all"/>
+          <?endif?>
+        </File>
+      </Component>
+
       <!--<Component Id="Plg.StagWare.Plugins.ECLinux"
                  Guid="377B8D22-354D-411B-B6A8-2524FA071A5E">
         <File Id="StagWare.Plugins.ECLinux.dll"

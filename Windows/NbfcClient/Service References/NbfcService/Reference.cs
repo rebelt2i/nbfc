@@ -165,6 +165,12 @@ namespace NbfcClient.NbfcService {
         [System.Runtime.Serialization.OptionalFieldAttribute()]
         private float TargetFanSpeedField;
         
+        [System.Runtime.Serialization.OptionalFieldAttribute()]
+        private int TemperatureField;
+        
+        [System.Runtime.Serialization.OptionalFieldAttribute()]
+        private int RpmField;
+        
         [global::System.ComponentModel.BrowsableAttribute(false)]
         public System.Runtime.Serialization.ExtensionDataObject ExtensionData {
             get {
@@ -249,6 +255,32 @@ namespace NbfcClient.NbfcService {
                 if ((this.TargetFanSpeedField.Equals(value) != true)) {
                     this.TargetFanSpeedField = value;
                     this.RaisePropertyChanged("TargetFanSpeed");
+                }
+            }
+        }
+        
+        [System.Runtime.Serialization.DataMemberAttribute()]
+        public int Temperature {
+            get {
+                return this.TemperatureField;
+            }
+            set {
+                if ((this.TemperatureField.Equals(value) != true)) {
+                    this.TemperatureField = value;
+                    this.RaisePropertyChanged("Temperature");
+                }
+            }
+        }
+        
+        [System.Runtime.Serialization.DataMemberAttribute()]
+        public int Rpm {
+            get {
+                return this.RpmField;
+            }
+            set {
+                if ((this.RpmField.Equals(value) != true)) {
+                    this.RpmField = value;
+                    this.RaisePropertyChanged("Rpm");
                 }
             }
         }

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:netfx="http://schemas.microsoft.com/wix/NetFxExtension">
   
   <!--Includes-->
   <?include $(var.NbfcSetup.ProjectDir)Constants.wxi ?>
@@ -24,7 +25,8 @@
     <Variable Name="InstallFolder" Type="string" Value="[ProgramFilesFolder]$(var.ProductName)"/>
     
     <Chain>
-      <PackageGroupRef Id="NetFx45Web"/>
+      <!-- NetFx45Web was removed in WiX 3.14; project targets .NET 4.8 -->
+      <PackageGroupRef Id="NetFx48Web"/>
       <MsiPackage Compressed="yes" SourceFile="$(var.NbfcSetup.TargetPath)" Id="MsiPackage">        
         <MsiProperty Name="INSTALLFOLDER" Value="[InstallFolder]" />
       </MsiPackage>

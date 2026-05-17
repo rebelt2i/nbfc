@@ -13,6 +13,7 @@ namespace StagWare.FanControl.Plugins
 
         T fanControlPlugin;
         string fanControlPluginId;
+        readonly string preferredPluginId;
 
         public T FanControlPlugin
         {
@@ -44,7 +45,14 @@ namespace StagWare.FanControl.Plugins
         public IEnumerable<Lazy<T, IFanControlPluginMetadata>> Plugins { get; set; }
 
         public FanControlPluginLoader(string path)
+            : this(path, null)
         {
+        }
+
+        public FanControlPluginLoader(string path, string preferredPluginId)
+        {
+            this.preferredPluginId = preferredPluginId;
+
             var dirCatalog = new DirectoryCatalog(path);
             var aggCatalog = new AggregateCatalog(dirCatalog);
             var container = new CompositionContainer(aggCatalog);
@@ -93,9 +101,22 @@ namespace StagWare.FanControl.Plugins
                     break;
             }
 
-            var orderedPlugins = this.Plugins.OrderByDescending(x => x.Metadata.Priority);
+            IEnumerable<Lazy<T, IFanControlPluginMetadata>> candidates = this.Plugins;
 
-            foreach (Lazy<T, IFanControlPluginMetadata> l in orderedPlugins)
+            if (!string.IsNullOrWhiteSpace(this.preferredPluginId))
+            {
+                candidates = candidates
+                    .Where(x => string.Equals(
+                        x.Metadata.UniqueId,
+                        this.preferredPluginId,
+                        StringComparison.OrdinalIgnoreCase));
+            }
+            else
+            {
+                candidates = candidates.OrderByDescending(x => x.Metadata.Priority);
+            }
+
+            foreach (Lazy<T, IFanControlPluginMetadata> l in candidates)
             {
                 if (!IsPluginCompatible(l.Metadata, platform, os.Version, arch))
                 {
