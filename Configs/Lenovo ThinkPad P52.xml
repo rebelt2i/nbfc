@@ -84,13 +84,13 @@
           <FanSpeed>0</FanSpeed>
         </TemperatureThreshold>
         <TemperatureThreshold>
-          <UpThreshold>55</UpThreshold>
-          <DownThreshold>45</DownThreshold>
-          <FanSpeed>15</FanSpeed>
+          <UpThreshold>45</UpThreshold>
+          <DownThreshold>35</DownThreshold>
+          <FanSpeed>25</FanSpeed>
         </TemperatureThreshold>
         <TemperatureThreshold>
           <UpThreshold>65</UpThreshold>
-          <DownThreshold>55</DownThreshold>
+          <DownThreshold>45</DownThreshold>
           <FanSpeed>30</FanSpeed>
         </TemperatureThreshold>
         <TemperatureThreshold>
